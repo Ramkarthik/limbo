@@ -1,5 +1,5 @@
 use crate::btree::BTreeCursor;
-use crate::function::AggFunc;
+use crate::function::{AggFunc, Func};
 use crate::pager::Pager;
 use crate::schema::Table;
 use crate::types::{AggContext, Cursor, CursorResult, OwnedRecord, OwnedValue, Record};
@@ -192,6 +192,12 @@ pub enum Insn {
     AggFinal {
         register: usize,
         func: AggFunc,
+    },
+
+    Function {
+        register: usize,
+        col: usize,
+        func: Func,
     },
 
     // Open a sorter.
@@ -1133,6 +1139,19 @@ impl Program {
                     };
                     state.pc += 1;
                 }
+                Insn::Function {
+                    register,
+                    col,
+                    func: _,
+                } => {
+                    let col = state.registers[*col].clone();
+                    if let Some(json_str) = col.to_json_string() {
+                        state.registers[*register] = OwnedValue::Text(Rc::new(json_str));
+                    } else {
+                        anyhow::bail!("Runtime error: malformed JSON");
+                    }
+                    state.pc += 1;
+                }
                 Insn::SorterOpen { cursor_id } => {
                     let cursor = Box::new(crate::sorter::Sorter::new());
                     cursors.insert(*cursor_id, cursor);
@@ -1575,6 +1594,19 @@ fn insn_to_str(program: &Program, addr: InsnReference, insn: &Insn, indent: Stri
                 OwnedValue::Text(Rc::new(func.to_string().into())),
                 0,
                 format!("accum=r[{}]", *register),
+            ),
+            Insn::Function {
+                func,
+                register,
+                col,
+            } => (
+                "Function",
+                0,
+                *col as i32,
+                *register as i32,
+                OwnedValue::Text(Rc::new(func.to_string().into())),
+                0,
+                format!("r[{}] = func(r[{}])", *register, *col),
             ),
             Insn::SorterOpen { cursor_id } => (
                 "SorterOpen",

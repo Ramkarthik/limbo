@@ -1,7 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::function::{AggFunc, Func, SingleRowFunc};
+use crate::function::{AggFunc, Func, SingleRowFunc, JsonFunc};
+use crate::function::Func::Json;
 use crate::pager::Pager;
 use crate::schema::{Column, Schema, Table};
 use crate::sqlite3_ondisk::{DatabaseHeader, MIN_PAGE_CACHE_SIZE};
@@ -945,6 +946,29 @@ fn translate_expr(
                         }
                     }
                 }
+                Some(Func::Json(jf)) => {
+                    match jf {
+                        JsonFunc::Json => {
+                            let args = if let Some(args) = args {
+                                if args.len() != 1 {
+                                    anyhow::bail!("Parse error: json bad number of arguments");
+                                }
+                                args
+                            } else {
+                                anyhow::bail!("Parse error: json function with no arguments");
+                            };
+                            let expr = &args[0];
+                            let expr_reg = program.alloc_register();
+                            let _ = translate_expr(program, select, expr, expr_reg)?;
+                            program.emit_insn(Insn::Function {
+                                register: target_register,
+                                col: expr_reg,
+                                func: Json(JsonFunc::Json),
+                            });
+                            Ok(target_register)
+                        }
+                    }
+                }
                 None => {
                     anyhow::bail!("Parse error: unknown function {}", name.0);
                 }
@@ -1124,6 +1148,7 @@ fn translate_aggregation(
     let args = info.args.as_ref().unwrap_or(empty_args);
     let dest = match func {
         Func::SingleRow(_) => anyhow::bail!("Parse error: single row function in aggregation"),
+        Func::Json(_) => anyhow::bail!("Parse error: json function in aggregation"),
         Func::Agg(agg_func) => match agg_func {
             AggFunc::Avg => {
                 if args.len() != 1 {

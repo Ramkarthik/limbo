@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::{cell::Ref, rc::Rc};
 
 use anyhow::Result;
+use serde_json::Value as JsonValue;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value<'a> {
@@ -52,6 +53,20 @@ impl Display for OwnedValue {
                 AggContext::GroupConcat(s) => write!(f, "{}", s),
             },
             OwnedValue::Record(r) => write!(f, "{:?}", r),
+        }
+    }
+}
+
+impl OwnedValue {
+    pub fn to_json_string(&self) -> Option<String> {
+        match self {
+            OwnedValue::Integer(i) => Some(i.to_string()),
+            OwnedValue::Float(fl) => Some(fl.to_string()),
+            OwnedValue::Text(s) => {
+                let parsed_json: JsonValue = serde_json::from_str(s).ok()?;
+                Some (parsed_json.to_string())
+            },
+            _ => None
         }
     }
 }

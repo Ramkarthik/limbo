@@ -978,6 +978,8 @@ dependencies = [
  "rstest",
  "rusqlite",
  "rustix",
+ "serde",
+ "serde_json",
  "sieve-cache",
  "sqlite3-parser",
  "thiserror",

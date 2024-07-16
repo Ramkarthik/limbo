@@ -27,13 +27,47 @@ impl AggFunc {
     }
 }
 
+#[derive(Debug)]
 pub enum SingleRowFunc {
     Coalesce,
 }
 
+impl SingleRowFunc {
+    pub fn to_string(&self) -> &str {
+        match self {
+            SingleRowFunc::Coalesce => "coalesce"
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum JsonFunc {
+    Json,
+}
+
+impl JsonFunc {
+    pub fn to_string(&self) -> &str {
+        match self {
+            JsonFunc::Json => "json"
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Func {
     Agg(AggFunc),
     SingleRow(SingleRowFunc),
+    Json(JsonFunc),
+}
+
+impl Func {
+    pub fn to_string(&self) -> &str {
+        match self {
+            Func::Agg(agg) => agg.to_string(),
+            Func::SingleRow(sr) => sr.to_string(),
+            Func::Json(j) => j.to_string(),
+        }
+    }
 }
 
 impl FromStr for Func {
@@ -50,6 +84,7 @@ impl FromStr for Func {
             "sum" => Ok(Func::Agg(AggFunc::Sum)),
             "total" => Ok(Func::Agg(AggFunc::Total)),
             "coalesce" => Ok(Func::SingleRow(SingleRowFunc::Coalesce)),
+            "json" => Ok(Func::Json(JsonFunc::Json)),
             _ => Err(()),
         }
     }
